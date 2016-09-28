@@ -1,5 +1,7 @@
 package forcomp
 
+import java.io.Serializable
+
 
 object Anagrams {
 
@@ -126,6 +128,48 @@ object Anagrams {
     ) yield (xw._1, xw._2 - yMap(xw._1))
   }
 
+  class WordTree(val node : List[Word], val children : List[WordTree]) {
+
+    override def toString = s"WordTree(node=$node, children=$children)\n"
+  }
+
+  def findWords(occ : Occurrences) : List[Word] = {
+    if (occ.isEmpty) List()
+    else dictionaryByOccurrences(occ)
+  }
+
+  def makeTree(full : Occurrences) : List[WordTree] = {
+    for (
+      c <- combinations(full)
+      if (findWords(c).nonEmpty)
+    ) yield {
+        new WordTree(findWords(c), makeTree(subtract(full, c)))
+      }
+  }
+
+
+  // WordTree(node=List(my), children=List(WordTree(node=List(en), children=List(WordTree(node=List(as), children=List())
+
+
+  def getSentencesFromTrees(s: Sentence, trees: List[WordTree]) : List[Sentence] = {
+    val sentOccur = sentenceOccurrences(s)
+    for (
+      t <- trees;
+      s <- getSentencesFromTree(List(), t)
+      if (sentOccur.equals(sentenceOccurrences(s)))
+    ) yield s
+  }
+
+  def getSentencesFromTree(prev: Sentence, tree : WordTree): List[Sentence] = {
+    if (tree.children.isEmpty) for (word <- tree.node) yield word :: prev
+    else
+      for (
+        word <- tree.node;
+        ch <- tree.children;
+        s <- getSentencesFromTree(word :: prev , ch)
+      ) yield s
+  }
+
   /** Returns a list of all anagram sentences of the given sentence.
    *
    *  An anagram of a sentence is formed by taking the occurrences of all the characters of
@@ -167,14 +211,9 @@ object Anagrams {
    *  Note: There is only one anagram of an empty sentence.
    */
   def sentenceAnagrams(sentence: Sentence): List[Sentence] = {
-    val comb = combinations(sentenceOccurrences(sentence))
-    val dict = dictionaryByOccurrences
-
-    for (
-      c <- comb;
-      if (dict(c).nonEmpty)
-    ) yield (dict(c))
-
+    if (sentence.isEmpty) List(sentence)
+    else getSentencesFromTrees(sentence, makeTree(sentenceOccurrences(sentence)))
   }
+
 
 }
